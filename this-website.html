@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A short introduction to this website and the engineering projects it will document." />
+  <title>this website - James Platt</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="index.html">About</a>
+      <a href="posts.html" aria-current="page">Posts</a>
+    </nav>
+
+    <article class="post fade">
+      <header class="post-header">
+        <h1>this website</h1>
+        <p class="post-date">Published <time datetime="2026-01-31">31 January 2026</time></p>
+      </header>
+
+      <p>Hi there everyone and welcome to my little corner of the Internet. This first post is going to be a short one.</p>
+
+      <p>Some of you may know that this isn’t the first iteration of my website; back in 2022 I taught myself a bit of HTML and CSS using W3Schools and wrote a blog website in the hopes that I could write about some of the work I was doing with my school’s racing team, Firefly. The problem? I spent the best part of a month making small style adjustments, adding fancy animations and spending absolutely no time actually writing.</p>
+
+      <p>Another issue I had is that I didn’t really have anything of value to write about at the time, so I quickly lost motivation and shelved the project.</p>
+
+      <p>In the present day, I’d like to think that I do have interesting things to write about so I revisited the idea of building a website. I wanted to avoid the previous mistake of wasting time making something with flashy animations and bloated stylesheets so I settled on the design as it is today.</p>
+
+      <p>I’m going to commit to writing a post every fortnight or so for at least the next few months until I feel I’ve exhausted my supply. These posts may vary between small one-weekend jobs and longer-term, larger-scale projects I’ve worked on, some of which may be split into multiple parts if they deserve it.</p>
+
+      <p>I’d also like to thank my good friend Eliyahu for hosting this website. You should go and check out <a href="https://eliyahu.co.uk/">his website</a> too!</p>
+
+      <p>With that out of the way, it’s time to actually start talking about engineering.</p>
+
+      <p class="signoff">~J</p>
+    </article>
+  </main>
+
+  <script>
+    (function () {
+      const content = document.querySelector('.fade');
+      if (!content) return;
+
+      function showContent() {
+        content.classList.remove('is-leaving');
+        content.classList.add('is-visible');
+      }
+
+      requestAnimationFrame(showContent);
+      window.addEventListener('pageshow', showContent);
+
+      document.querySelectorAll('a[href]').forEach(a => {
+        const url = new URL(a.href, location.href);
+
+        if (url.origin !== location.origin) return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+
+        a.addEventListener('click', e => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+          e.preventDefault();
+          content.classList.remove('is-visible');
+          content.classList.add('is-leaving');
+
+          setTimeout(() => {
+            location.href = a.href;
+          }, 160);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

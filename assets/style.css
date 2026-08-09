@@ -77,6 +77,27 @@ h1{
   letter-spacing: -0.02em;
 }
 
+.post-header{
+  margin-bottom: 2rem;
+}
+
+.post-header h1{
+  margin-bottom: .45rem;
+}
+
+.post-date{
+  margin: 0;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+               "Liberation Mono", "Courier New", monospace;
+  font-size: .9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.signoff{
+  margin-top: 2rem;
+}
+
 p{
   margin: 0 0 1rem;
 }
@@ -146,36 +167,118 @@ p{
   margin: 0 auto;
 }
 
+.figure--molecule img{
+  max-width: 76%;
+}
+
 .figure figcaption{
-  margin-top: .5rem;
+  max-width: 36rem;
+  margin: .75rem auto 0;
   font-size: .9rem;
+  line-height: 1.45;
   color: var(--muted);
   text-align: center;
+  white-space: nowrap;
 }
 
 .equation{
   margin: 1.5rem 0 2rem;
 }
 
-.equation .math{
-  padding: 1.5rem 0;
-  border: none;
+.equation pre[class*="language-"]{
+  margin: 0;
   overflow-x: auto;
 }
 
-.equation .math mjx-container{
-  display: block;
-  transform: scale(1.15);
-  transform-origin: center;
+.equation .math{
+  min-height: 4rem;
+  padding: 1.25rem .5rem;
+  overflow-x: auto;
+  text-align: center;
+  font-size: 1.15rem;
+}
+
+.equation .katex-display{
+  margin: 0;
 }
 
 .equation figcaption{
-  margin-top: .5rem;
+  max-width: 36rem;
+  margin: .75rem auto 0;
   font-size: .9rem;
+  line-height: 1.45;
   color: var(--muted);
   text-align: center;
+  white-space: nowrap;
+}
+
+.caption-title{
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.caption-note{
+  display: block;
+  margin-top: .15rem;
+  white-space: nowrap;
+}
+
+.figure .caption-credit{
+  white-space: normal;
+}
+
+.download{
+  margin: 1.5rem 0 2rem;
+  padding: .85rem 1rem;
+  border-left: 2px solid var(--muted);
+  background: #f7f6f4;
+}
+
+.download a{
+  font-weight: 600;
+}
+
+.download span{
+  margin-left: .4rem;
+  color: var(--muted);
+  font-size: .9rem;
+  white-space: nowrap;
+}
+
+.aside{
+  margin: 1.5rem 0 2rem;
+  padding: .85rem 1rem;
+  border-left: 2px solid var(--muted);
+  background: #f7f6f4;
+}
+
+.aside p:last-child{
+  margin-bottom: 0;
+}
+
+.aside-title{
+  font-weight: 600;
 }
 
 @media (max-width: 420px){
   h1{ font-size: 1.9rem; }
+
+  .download span{
+    display: block;
+    margin: .2rem 0 0;
+  }
+
+  .post-list a{
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .post-list .title{
+    white-space: normal;
+  }
+
+  .post-list .dots{
+    display: none;
+  }
 }

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="The theory and research behind Luciferin, a custom motor controller for Team Firefly’s Greenpower F24+ racing car." />
+  <title>Luciferin pt1: Motor control - James Platt</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/katex.min.css" integrity="sha384-vlBdW0r3AcZO/HboRPznQNowvexd3fY8qHOWkBi5q7KGgqJ+F48+DceybYmrVbmB" crossorigin="anonymous" />
+  <link rel="stylesheet" href="assets/style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-latex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/katex.min.js" integrity="sha384-AtrdNsnxl/75rvBneBVH7DtOvCxSVahR2zWqle1coBKd8DEmLoviqNeJSx64gNAs" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/contrib/auto-render.min.js" integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz" crossorigin="anonymous" onload="renderMathInElement(document.querySelector('.post'), {throwOnError: false});"></script>
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="index.html">About</a>
+      <a href="posts.html" aria-current="page">Posts</a>
+    </nav>
+
+    <article class="post fade">
+      <header class="post-header">
+        <h1>Luciferin pt1: Motor control</h1>
+        <p class="post-date">Published <time datetime="2026-02-02">2 February 2026</time></p>
+      </header>
+
+      <p>This is the first in a series of posts discussing the research, design work and fabrication of a custom motor controller for my school’s racing team, <a href="https://www.stpaulsschool.org.uk/beyond-the-classroom/societies/senior-societies-13-16/team-firefly/">Firefly</a>, competing in the <a href="https://www.greenpower.co.uk/">Greenpower</a> F24+ championship.</p>
+
+      <p>The name Luciferin came from the substrate of the enzyme <a href="https://en.wikipedia.org/wiki/Luciferase">luciferase</a> and is responsible for making fireflies glow. In a similar sense, this project was designed to give Firefly a competitive edge on track.</p>
+
+      <figure class="figure figure--molecule">
+        <img src="assets/article-2/luciferin-molecule.svg" width="1088" height="460" alt="Two-dimensional chemical structure of firefly luciferin" />
+        <figcaption>
+          <span class="caption-title">Firefly luciferin</span>
+          <span class="caption-note">Structure by <a href="https://commons.wikimedia.org/wiki/File:Chemical-structure-of-firefly-luciferin.svg">Ashaymardanov</a></span>
+        </figcaption>
+      </figure>
+
+      <p>F24+ is a power-limited electric racing series in which every team is required to use the same unmodified batteries and motor. As a result, outright performance is not determined by peak power output or grip, but rather by how efficiently a car is able to convert a fixed amount of stored energy into lap time. In F24+, races last one hour, and the challenge is not simply to be fast, but to be fast for the entire duration without running out of energy prematurely or finishing the race having failed to extract all of the usable capacity from the batteries.</p>
+
+      <p>In practice, this creates a narrow operating window. Drawing too much current early in the race leads to rapid voltage sag and a disproportionate loss of usable battery capacity, while being overly conservative results in unused energy and lost lap time. Historically, Firefly’s primary means of managing this trade-off was through the choice of a fixed gear ratio selected before the race. While effective to a degree, this approach is inherently static: once the race begins, the car cannot adapt to changing conditions such as battery health, track layout, gradients or wind. Any attempt to introduce adaptability through mechanical means, such as including multiple gear ratios, would introduce unacceptable complexity, mass and reliability risk.</p>
+
+      <p>This left motor control as a promising idea to pursue. While there were clearly mechanical efficiency gains to be made elsewhere on the car through drivetrain optimisation, rolling resistance and aerodynamic refinement, I wanted to focus on how I could make the car able to dynamically adapt to a changing environment. How current is delivered to the motor has a direct impact on both motor efficiency and battery performance.</p>
+
+      <p>A key motivation for this work came from the behaviour of the lead-acid batteries used in Greenpower. Unlike an ideal energy source, the usable capacity of a lead-acid battery depends strongly on how quickly it is discharged. This relationship is described by <a href="https://en.wikipedia.org/wiki/Peukert%27s_law">Peukert’s law</a>:</p>
+
+      <figure class="equation">
+        <div class="math" aria-label="t equals C sub p divided by I to the power k">\[t = \frac{C_p}{I^k}\]</div>
+        <figcaption>
+          <span class="caption-title">Equation 1 - Peukert’s law</span>
+          <span class="caption-note">Runtime falls nonlinearly as discharge current rises.</span>
+        </figcaption>
+      </figure>
+
+      <p>In practical terms, this means that drawing twice the current does not halve the available runtime but rather reduces it by significantly more. For the <a href="https://www.yuasa.co.uk/yuasa/datasheet/index/sku/REC36-12I/">Yuasa REC36 batteries</a> used by Firefly, experimental discharge data showed a Peukert exponent of approximately 1.2, which is typical for lead-acid chemistry. At this value, doubling the discharge current reduces the usable discharge time to around 43% of what would be expected under ideal conditions, rather than the 50% suggested by simple linear reasoning.</p>
+
+      <p>Most crucially of all, this penalty is asymmetric. High current spikes are far more damaging to overall efficiency than low current periods are beneficial. As a result, overall energy extraction is maximised by keeping current draw as smooth and consistent as possible over the course of the race. Short bursts of aggressive acceleration can cost more usable energy than they gain in lap time, even if average power appears reasonable.</p>
+
+      <p>This alone justified the need for a motor controller. Off-the-shelf solutions do exist, such as the ones provided by <a href="https://www.4qd.co.uk/">Porter 4QD</a>, but where’s the fun in that?</p>
+
+      <p>Jokes aside, a custom solution has its benefits. We get to define the switching characteristics and gain the ability to write more complex control algorithms defining motor behaviour.</p>
+
+      <p>The base theory behind motor control is to turn the motor on and off at a very high frequency so that the motor “sees” a lower voltage than what is actually being supplied to it. Anyone with any experience in electronics will recognise this as a description of PWM. If we were to treat the motor as a nice, well-behaved passive load, the simplest possible “motor controller” would look something like Figure 1, where a control signal switches a MOSFET which in turn switches the motor on and off.</p>
+
+      <figure class="figure">
+        <img src="assets/article-2/motor-controller-naive.png" width="858" height="829" alt="Naive motor controller circuit with a MOSFET switching a motor directly" />
+        <figcaption>
+          <span class="caption-title">Figure 1 - Naive motor controller</span>
+          <span class="caption-note">A MOSFET switches the motor directly.</span>
+        </figcaption>
+      </figure>
+
+      <p>Of course, in reality, the motor is not a passive load and modelling it as a mere resistive load is insufficient. When abstracted, the brushed DC motor used in Greenpower can be modelled with three key electrical characteristics: a winding resistance, an inductance and a back EMF proportional to rotational speed. Together, these determine how the motor responds to changes in voltage and current.</p>
+
+      <p>While all three are important, it is the inductive behaviour of the motor that becomes critical once the supply is switched. The inductance resists changes in current, and will generate potentially very high voltages in order to keep current flowing when the external power source is disconnected.</p>
+
+      <p>It should now be clear why the circuit shown in Figure 1 fails. When the control signal goes low and the MOSFET turns off, the inductance of the motor winding resists the sudden interruption of current. In doing so, the motor generates a large voltage in an attempt to keep current flowing. In the absence of any additional protection, this behaviour can exceed the MOSFET’s safe operating limits, resulting in the release of the all-too-familiar <a href="https://en.wikipedia.org/wiki/Magic_smoke"><em>magic smoke</em></a>.</p>
+
+      <p>The solution is actually quite simple. We provide an additional path for current to flow in the case that power is disconnected in the form of a diode. This is depicted in Figure 2:</p>
+
+      <figure class="figure">
+        <img src="assets/article-2/motor-controller-diode.png" width="1261" height="695" alt="Motor controller circuit showing powered and freewheeling current paths through a diode" />
+        <figcaption>
+          <span class="caption-title">Figure 2 - The classic motor driver</span>
+          <span class="caption-note">A diode carries the freewheeling current.</span>
+        </figcaption>
+      </figure>
+
+      <p>This is an acceptable solution for most applications. However, the diode has a voltage drop across it and is therefore a relatively inefficient component when compared to the MOSFET. This means that a significant amount of power is dissipated as heat in the diode when the current is circulating through it, i.e. when the motor is not powered.</p>
+
+      <p>The significance of this power loss is determined by the fraction of time the switch is off. At high duty cycles, for example 99%, the diode is only conducting for a small portion of each cycle and the associated losses are small. At lower duty cycles, for example 60%, the diode conducts for a much larger portion of the time, thereby increasing power dissipation.</p>
+
+      <p>To reduce these losses, the diode can be replaced with an actively controlled MOSFET operating as a <a href="https://www.analog.com/en/resources/glossary/synchronous_rectification.html">synchronous rectifier</a>. By turning this device on during the freewheeling interval, motor current is redirected through a low-resistance channel rather than a diode. This reduces conduction losses and improves overall efficiency. This revised model is shown in Figure 3.</p>
+
+      <figure class="figure">
+        <img src="assets/article-2/motor-controller-synchronous.png" width="1264" height="685" alt="Synchronous motor controller circuit showing powered and freewheeling current paths through two MOSFETs" />
+        <figcaption>
+          <span class="caption-title">Figure 3 - Synchronous rectification</span>
+          <span class="caption-note">A second MOSFET replaces the diode.</span>
+        </figcaption>
+      </figure>
+
+      <p>Using two MOSFETs in place of a diode introduces an important complication: unlike a diode, a MOSFET allows current to flow in both directions when it is conducting. This behaviour can be understood by considering the current in the motor during the off-time of the PWM cycle.</p>
+
+      <p>When the motor is switched off, the current circulating through the windings decays as the energy stored in the motor inductance is dissipated. In the case where a diode is used, this current naturally falls to zero, at which point the diode becomes reverse-biased and prevents any further current flow. This ensures that the motor current cannot reverse direction once the stored energy has been exhausted.</p>
+
+      <p>If the diode is replaced with a MOSFET, this failsafe no longer exists. Under certain conditions, such as when the motor is not switched back on sufficiently quickly, the inductive energy in the motor may be insufficient to counteract the back EMF generated by the rotating motor. In this case, the current can fall through zero and become negative. This corresponds to the motor actively driving current back into the circuit rather than drawing it, a phenomenon known as <a href="https://en.wikipedia.org/wiki/Regenerative_braking">motor braking</a>. While motor braking has valid applications, it is clearly undesirable in this context, where the objective is to deliver continuous drive to the motor.</p>
+
+      <p>To avoid this, the switching frequency must be high enough that the motor inductance does not fully discharge during the off-time of the PWM cycle. Based on the measured electrical characteristics of the Greenpower motor, the winding current decays on the order of a few milliseconds, implying a minimum switching frequency of a few hundred hertz to prevent current reversal. In practice, the motor is switched at a much higher frequency of 20 kHz, ensuring continuous positive current while also moving switching artefacts beyond the audible range.</p>
+
+      <p>An additional consideration is that if both MOSFETs were ever turned on at the same time, even briefly, they would form a direct short across the supply, with predictably catastrophic results. Preventing this requires careful timing of the switching signals, a problem that quickly becomes more interesting than it first appears. How this is handled, along with the full schematic of the controller and its peripherals, is the focus of <a href="luciferin-pt2.html">Part 2</a>.</p>
+    </article>
+  </main>
+
+  <script>
+    (function () {
+      const content = document.querySelector('.fade');
+      if (!content) return;
+
+      function showContent() {
+        content.classList.remove('is-leaving');
+        content.classList.add('is-visible');
+      }
+
+      requestAnimationFrame(showContent);
+      window.addEventListener('pageshow', showContent);
+
+      document.querySelectorAll('a[href]').forEach(a => {
+        const url = new URL(a.href, location.href);
+
+        if (url.origin !== location.origin) return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+
+        a.addEventListener('click', e => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+          e.preventDefault();
+          content.classList.remove('is-visible');
+          content.classList.add('is-leaving');
+
+          setTimeout(() => {
+            location.href = a.href;
+          }, 160);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

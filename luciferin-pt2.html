@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="The power stage, isolated gate drive, deadtime circuit, PCB routing and enclosure design behind the Luciferin motor controller." />
+  <title>Luciferin pt2: Hardware design - James Platt</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="index.html">About</a>
+      <a href="posts.html" aria-current="page">Posts</a>
+    </nav>
+
+    <article class="post fade">
+      <header class="post-header">
+        <h1>Luciferin pt2: Hardware design</h1>
+        <p class="post-date">Published <time datetime="2026-02-16">16 February 2026</time></p>
+      </header>
+
+      <p>Welcome to the second article in this series discussing my design for a custom motor controller for Greenpower F24+. Although not required, I recommend that you have a read of <a href="luciferin-pt1-motor-control.html">Part 1</a> first, as it lays out some of the wider context and broader theory behind synchronous rectification and its uses in motor control.</p>
+
+      <p>Part 1 ended with this synchronous half-bridge, describing how current flows through the motor for each switching state.</p>
+
+      <figure class="figure">
+        <img src="assets/article-2/motor-controller-synchronous.png" width="1264" height="685" alt="Synchronous half-bridge showing motor-current paths for the two switching states" loading="lazy" decoding="async" />
+        <figcaption>
+          <span class="caption-title">Figure 1 - Synchronous half-bridge</span>
+          <span class="caption-note">Current paths for each switching state.</span>
+        </figcaption>
+      </figure>
+
+      <p>At this level the circuit is well defined. At any given time one device conducts and one does not, and the motor sees the intended voltage. The difficulty only appears when attempting to physically realise those states.</p>
+
+      <p>A MOSFET is not commanded by a logic level but rather by a voltage relative to its own source terminal, and in high-side switching that terminal is not at a fixed voltage.</p>
+
+      <p>A common misconception I see, even among otherwise competent electronics engineers, is to treat a MOSFET as though it were a logic-controlled switch. This is understandable; in digital and low-side switching applications we model them that way constantly, and the abstraction usually holds. Early in this project I made exactly this mistake, which resulted in a modestly sized MOSFET graveyard and the device briefly earning the nickname Metal Oxide Semiconductor Fire-Emitting Transistor.</p>
+
+      <p>We must therefore control each MOSFET with a signal referenced to its own source terminal. For signal B this is trivial: it is the low-side device and its source is permanently tied to ground. For signal A, however, the source follows the switching node, so the drive signal must be referenced to a voltage that is itself moving.</p>
+
+      <p>The controller was designed from this constraint backwards, starting with what the power stage requires and only then determining how the microcontroller can interface with it. Once the problem is framed this way, the structure of the circuit largely determines itself. The schematic can be constructed by starting at the MOSFET gates and working outward.</p>
+
+      <figure class="figure">
+        <img src="assets/article-3/mosfet-power-stage.png" width="936" height="517" alt="Four-MOSFET synchronous half-bridge power stage with paired devices" loading="lazy" decoding="async" />
+        <figcaption>
+          <span class="caption-title">Figure 2 - MOSFET power stage</span>
+          <span class="caption-note">Parallel devices share current and heat.</span>
+        </figcaption>
+      </figure>
+
+      <p>The four MOSFETs implement the synchronous half-bridge from Part 1. In this implementation the high-side device performs the PWM switching, primarily to simplify routing of the power stage. Each gate includes a small series resistor to suppress ringing, and a pull-down resistor to ensure a defined off state in the absence of gate drive.</p>
+
+      <p>Each switch position uses two MOSFETs in parallel, reducing effective R<sub>DS(on)</sub> and distributing thermal stress between devices.</p>
+
+      <p>The low-side device can be driven directly, as its source is permanently tied to ground. The high-side device, however, requires a gate voltage referenced to the switching node. Since this node moves between ground and the battery voltage during normal operation, the drive circuitry must effectively “ride” on top of it.</p>
+
+      <p>This means the gate driver cannot share a ground with the microcontroller. It must exist in its own electrical domain, floating with the FET it controls, while still receiving timing information from the logic domain.</p>
+
+      <figure class="figure">
+        <img src="assets/article-3/isolated-gate-drive.png" width="638" height="595" alt="Optocouplers, isolated DC-to-DC converter and buck regulator used by the gate drive" loading="lazy" decoding="async" />
+        <figcaption>
+          <span class="caption-title">Figure 3 - Isolated gate drive</span>
+          <span class="caption-note">Optocouplers and isolated 15 V supplies.</span>
+        </figcaption>
+      </figure>
+
+      <p>The buck regulator generates the 15 V gate-drive rail from the battery supply and is dedicated solely to the power stage. Keeping it separate from the logic rails prevents switching transients from propagating into the microcontroller supply.</p>
+
+      <p>That rail is then reproduced by the isolated DC-DC converter on the floating side of the circuit, referenced to the motor terminal. As the switching node moves, the entire gate-drive supply moves with it, ensuring the high-side device always sees a consistent gate-to-source voltage.</p>
+
+      <p>The optocouplers transfer the switching commands into this floating domain. They provide timing information only, allowing the gate driver to be controlled without introducing a shared electrical reference between the logic circuitry and the power stage. An additional benefit is the avoidance of ground loops between the switching currents and the control electronics. The mechanisms involved are left unexplored here in the interest of keeping this article to a readable length.</p>
+
+      <p>One final consideration remains before we can retreat back into the comparatively civilised world of embedded software: the inclusion of deadtime, briefly mentioned at the end of Part 1.</p>
+
+      <p>Deadtime is necessary to ensure the two devices in a half-bridge are never on simultaneously. My solution here was implemented in hardware, shown below. It works reliably and is, in a sense, quite elegant.</p>
+
+      <figure class="figure">
+        <img src="assets/article-3/hardware-deadtime.png" width="892" height="727" alt="RC hardware circuit used to introduce deadtime between PWM signals" loading="lazy" decoding="async" />
+        <figcaption>
+          <span class="caption-title">Figure 4 - Hardware deadtime</span>
+          <span class="caption-note">An RC network separates the PWM edges.</span>
+        </figcaption>
+      </figure>
+
+      <p>In hindsight this is probably my biggest design regret. The ESP’s MCPWM peripheral provides configurable deadtime directly, and using it would have produced a simpler and cleaner system overall. The hardware solution solved a problem the microcontroller was already perfectly capable of solving.</p>
+
+      <p>At this point the remaining schematic consists primarily of interface circuitry, connectors, external I/O isolation and a CAN transceiver. While necessary, they are not particularly specific to the motor controller itself, so a full breakdown is omitted here.</p>
+
+      <p class="download"><a href="assets/article-3/ecu-schematic.pdf" download="Luciferin-ECU-schematic.pdf">Download the complete ECU schematic (PDF)</a><span>One page · 84 KB</span></p>
+
+      <p>At this stage the important details are spatial rather than schematic. The remaining design decisions are best conveyed visually, so the following images document the final routing and construction.</p>
+
+      <figure class="figure">
+        <a href="assets/article-3/pcb-routing.png"><img src="assets/article-3/pcb-routing.png" width="802" height="937" alt="Final PCB routing layout with power and control regions" loading="lazy" decoding="async" /></a>
+        <figcaption>
+          <span class="caption-title">Figure 5 - PCB routing</span>
+          <span class="caption-note">Power and control regions on the final board.</span>
+        </figcaption>
+      </figure>
+
+      <figure class="figure">
+        <a href="assets/article-3/power-traces.png"><img src="assets/article-3/power-traces.png" width="556" height="622" alt="Underside of the motor-controller PCB with reinforced high-current traces" loading="lazy" decoding="async" /></a>
+        <figcaption>
+          <span class="caption-title">Figure 6 - Reinforced power traces</span>
+          <span class="caption-note">Copper strips strengthen high-current paths.</span>
+        </figcaption>
+      </figure>
+
+      <figure class="figure">
+        <a href="assets/article-3/enclosure-render.png"><img src="assets/article-3/enclosure-render.png" width="4956" height="3504" alt="CAD render of the ECU enclosure, circuit board, connectors and heat sink" loading="lazy" decoding="async" /></a>
+        <figcaption>
+          <span class="caption-title">Figure 7 - Enclosure design</span>
+          <span class="caption-note">CAD layout of the board, connectors and heat sink.</span>
+        </figcaption>
+      </figure>
+
+      <figure class="figure">
+        <a href="assets/article-3/completed-controller.png"><img src="assets/article-3/completed-controller.png" width="921" height="748" alt="Completed Luciferin motor controller assembled in its enclosure" loading="lazy" decoding="async" /></a>
+        <figcaption>
+          <span class="caption-title">Figure 8 - Completed controller</span>
+          <span class="caption-note">The assembled ECU in its finished enclosure.</span>
+        </figcaption>
+      </figure>
+
+      <p>With the hardware completed, the problem shifts from survival to optimisation. Continue to <a href="luciferin-pt3.html">Part 3</a> for the software: generating the drive signals and using external sensing, including airspeed, to decide how the motor should actually be driven.</p>
+    </article>
+  </main>
+
+  <script>
+    (function () {
+      const content = document.querySelector('.fade');
+      if (!content) return;
+
+      function showContent() {
+        content.classList.remove('is-leaving');
+        content.classList.add('is-visible');
+      }
+
+      requestAnimationFrame(showContent);
+      window.addEventListener('pageshow', showContent);
+
+      document.querySelectorAll('a[href]').forEach(a => {
+        const url = new URL(a.href, location.href);
+
+        if (url.origin !== location.origin) return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+
+        a.addEventListener('click', e => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+          e.preventDefault();
+          content.classList.remove('is-visible');
+          content.classList.add('is-leaving');
+
+          setTimeout(() => {
+            location.href = a.href;
+          }, 160);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

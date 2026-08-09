@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Designing a safety-first electronic gear shifter around fresh CAN state, bounded actuation and absolute position feedback." />
+  <title>Making gear shifts boring - James Platt</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" />
+  <link rel="stylesheet" href="assets/style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-cpp.min.js"></script>
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="index.html">About</a>
+      <a href="posts.html" aria-current="page">Posts</a>
+    </nav>
+
+    <article class="post fade">
+      <header class="post-header">
+        <h1>Making gear shifts boring</h1>
+        <p class="post-date">Published <time datetime="2026-03-30">30 March 2026</time></p>
+      </header>
+
+      <p>One of the jobs I’ve been working on for <a href="https://github.com/ManchesterStingerMotorsports">Manchester Stinger Motorsports</a> this year is an electronic gear shifter. The basic premise is simple: take driver inputs in the form of paddles or buttons, check that their input makes sense and then perform the actual shifting action.</p>
+
+      <p>That sounds fairly simple, which is usually a warning sign.</p>
+
+      <p>If the actuator fires when it should not, it could request the wrong gear, initiate a shift at the wrong time, mechanically fight the gearbox, or leave the driver with a mismatch between commanded and actual gear. None of these are minor software faults; they can damage hardware, force a retirement, or, in the worst case, unsettle the car mid-corner and cause a loss of control, potentially resulting in a crash.</p>
+
+      <p>That is what makes the project slightly scary. The firmware is not just blinking an LED or logging a sensor value. It is commanding a motor attached to a gearbox attached to a moving race car. There are several layers of consequence between a single line of malformed C++ and something expensive, or dangerous, happening in real life.</p>
+
+      <p>So the important part of the project has not really been making the motor move. Making motors move is easy. Making sure the motor only moves when the shift request is valid, the state is fresh, the encoder is alive, and the controller knows how to stop, is the actual problem.</p>
+
+      <p>The controller is built around an ESP32-S3 running ESP-IDF. It talks to the car over CAN bus, drives the shift actuator through a Castle Creations Copperhead 10 ESC and motor, and reads the actuator position using a Samesky AMT20 absolute encoder over SPI. It uses the ESP32’s internal CAN controller (TWAI) in combination with my <a href="building-a-can-bus-library.html">custom CAN library</a> to read CAN packets from the ECU.</p>
+
+      <p>This allows the controller to keep an internal gear count without blindly trusting itself. Before sending a torque command to the ESC, it reconciles that count with a fresh ECU gear packet from CAN, calculated from the ratio between engine speed and transmission output speed.</p>
+
+      <p>The shifter’s firmware starts two application tasks from <code>app_main</code>:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">xTaskCreatePinnedToCore(shifter_task,
+                        "shifter_task",
+                        config::SHIFTER_TASK_STACK_WORDS,
+                        nullptr,
+                        config::SHIFTER_TASK_PRIORITY,
+                        nullptr,
+                        config::CONTROL_CORE);
+
+xTaskCreatePinnedToCore(can_task,
+                        "can_task",
+                        config::CAN_TASK_STACK_WORDS,
+                        nullptr,
+                        config::CAN_TASK_PRIORITY,
+                        nullptr,
+                        config::CONTROL_CORE);</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/4e6c0654fd9c223dcbf0a6768e73b7458f574991/production_firmware/main/main.cpp">Code block 1 - Task creation</a></span>
+          <span class="caption-note">Both control tasks share one core.</span>
+        </figcaption>
+      </figure>
+
+      <p>The <code>can_task</code> keeps the latest ECU gear snapshot fresh. The <code>shifter_task</code> owns the actual shift process.</p>
+
+      <p>Both tasks are pinned to the same ESP32-S3 core. The CAN-facing worker tasks are also pinned to that control core. The point is that, during the active shift window, priority decides what runs. The shifter task has the highest application priority, so lower-priority CAN processing should never interrupt the core actuator loop.</p>
+
+      <p>This does not mean CAN hardware interrupts stop existing entirely. The TWAI peripheral can still receive and queue frames. The important thing is that task-level CAN processing is not allowed to wander into the middle of the shift loop.</p>
+
+      <p>This implementation differs from my original plan. My original plan was to make the shift interrupt do everything. The driver presses the button, the ISR runs, and the shift happens, and nothing else can interfere.</p>
+
+      <p>That has a certain blunt appeal.</p>
+
+      <p>It is also not a great idea. A gear shift is a relatively long mechanical event, and interrupt context is not the place to sit around waiting for mechanical things to happen. Long ISRs can interfere with software timers, watchdog servicing, and ESP-IDF or FreeRTOS driver code that expects the system to still be alive.</p>
+
+      <p>We therefore use a more traditional model of programming where the GPIO interrupt does the smallest possible useful thing:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">static void IRAM_ATTR shift_input_isr(ShiftRequest request)
+{
+    BaseType_t higher_priority_task_woken = pdFALSE;
+    bool accepted = false;
+
+    portENTER_CRITICAL_ISR(&amp;shift_input_mux);
+    if (pending_shift_request == SHIFT_REQUEST_NONE &amp;&amp;
+        shift_task_handle != nullptr)
+    {
+        pending_shift_request = request;
+        accepted = true;
+    }
+    portEXIT_CRITICAL_ISR(&amp;shift_input_mux);
+
+    if (!accepted) return;
+
+    disable_shift_input_interrupts();
+    vTaskNotifyGiveFromISR(shift_task_handle,
+                           &amp;higher_priority_task_woken);
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/4e6c0654fd9c223dcbf0a6768e73b7458f574991/production_firmware/main/interrupts/shift_inputs.cpp">Code block 2 - Minimal shift ISR</a></span>
+          <span class="caption-note">First request wins; the task is woken.</span>
+        </figcaption>
+      </figure>
+
+      <p>The ISR latches the first request, disables further shift input interrupts and then wakes the shifter task.</p>
+
+      <p>It does not drive the motor or wait for the encoder and it does not yet make any decisions about gear validity.</p>
+
+      <p>This is a good model because it gives the firmware one owner for the actuator. During a shift, the shifter task is in charge. There is no second shift request arriving with conflicting opinions.</p>
+
+      <p>Before the ESC is commanded, the firmware must check that the request is allowed and that the state it is using is recent enough to trust.</p>
+
+      <p>The shift range check is deliberately boring:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">static ShiftSafetyStatus shift_request_safety_status(
+    ShiftRequest request, gear_t gear_count)
+{
+    switch (request)
+    {
+    case SHIFT_REQUEST_UP:
+        return gear_count == GEAR_5
+            ? ShiftSafetyStatus::OutOfRange
+            : ShiftSafetyStatus::Allowed;
+    case SHIFT_REQUEST_DOWN:
+        return gear_count == GEAR_1
+            ? ShiftSafetyStatus::OutOfRange
+            : ShiftSafetyStatus::Allowed;
+    case SHIFT_REQUEST_NEUTRAL:
+        return (gear_count == GEAR_1 || gear_count == GEAR_2)
+            ? ShiftSafetyStatus::Allowed
+            : ShiftSafetyStatus::NeutralUnavailable;
+    default:
+        return ShiftSafetyStatus::InvalidRequest;
+    }
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/759f25d2ff6a5e15ca7d30c35ee2f88f5d3e6319/production_firmware/main/tasks/gear_safety_task/gear_safety_task.cpp">Code block 3 - Shift range guard</a></span>
+          <span class="caption-note">Out-of-range shifts fail immediately.</span>
+        </figcaption>
+      </figure>
+
+      <p>This prevents things like requesting sixth gear on our five-speed gearbox, or trying to shift down below first. The neutral request is only valid from first or second because neutral sits between them.</p>
+
+      <p>The CAN task also reads the latest ECU gear snapshot and checks whether that data is sufficiently fresh:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">static bool frame_is_fresh(const MSM_CAN::RxFrame &amp;frame,
+                           uint32_t max_age_ms)
+{
+    return static_cast&lt;int32_t&gt;(now_ms() - frame.timestamp_ms)
+        &lt;= static_cast&lt;int32_t&gt;(max_age_ms);
+}
+
+MSM_CAN::RxFrame speed_gear_frame{};
+if (MSM_CAN::get(HALTECH_ID_SPEED_GEAR, speed_gear_frame) == ESP_OK &amp;&amp;
+    frame_is_fresh(speed_gear_frame, SPEED_GEAR_TIMEOUT_MS))
+{
+    output.speed_gear_valid = true;
+    const uint16_t combined_gear =
+        MSM_CAN::unpack_u16(speed_gear_frame.data, 2);
+    output.ecu_gear = static_cast&lt;int8_t&gt;(combined_gear &amp; 0xFF);
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/4e6c0654fd9c223dcbf0a6768e73b7458f574991/production_firmware/main/tasks/can_task/can_task.cpp">Code block 4 - Fresh CAN snapshot</a></span>
+          <span class="caption-note">Stale Haltech frames are rejected.</span>
+        </figcaption>
+      </figure>
+
+      <p>The important part here is that the ESC is only commanded if the following are true:</p>
+
+      <ol>
+        <li>The requested shift is valid from the current internal gear.</li>
+        <li>The ECU gear packet is fresh.</li>
+        <li>The ECU gear has been reconciled with the internal gear count.</li>
+        <li>The encoder can be read successfully.</li>
+      </ol>
+
+      <p>If any of those checks fail, the ESC command is never sent; the shift is rejected.</p>
+
+      <p>If the ECU gear is fresh but disagrees with the internal gear count, the controller resynchronises the count from the ECU before evaluating the request:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">Gear ecu_gear = gear_count;
+if (ecu_gear_to_gear(can_output.ecu_gear, ecu_gear))
+{
+    if (gear_count != ecu_gear)
+    {
+        ESP_LOGI(TAG_SHIFTER,
+                 "Synced gear from ECU: previous=%s ecu_gear=%s",
+                 gear_to_string(gear_count),
+                 gear_to_string(ecu_gear));
+    }
+    gear_count = ecu_gear;
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/4e6c0654fd9c223dcbf0a6768e73b7458f574991/production_firmware/main/tasks/shifter_task/shifter_task.cpp">Code block 5 - Gear resynchronisation</a></span>
+          <span class="caption-note">Fresh ECU data corrects the local count.</span>
+        </figcaption>
+      </figure>
+
+      <p>Once all the relevant prechecks have passed, the task selects a torque command based on the requested shift:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">static float torque_for_shift_request(
+    ShiftRequest request, uint16_t current_position)
+{
+    switch (request)
+    {
+    case SHIFT_REQUEST_UP:
+        return SHIFT_UP_TORQUE;
+    case SHIFT_REQUEST_DOWN:
+        return SHIFT_DOWN_TORQUE;
+    case SHIFT_REQUEST_NEUTRAL:
+        return torque_for_neutral_from_position(current_position);
+    default:
+        return 0.0f;
+    }
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/759f25d2ff6a5e15ca7d30c35ee2f88f5d3e6319/production_firmware/main/tasks/gear_safety_task/gear_safety_task.cpp">Code block 6 - Torque selection</a></span>
+          <span class="caption-note">Direction and neutral side set torque.</span>
+        </figcaption>
+      </figure>
+
+      <p>The torque values are currently set to calibration values:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">static const float SHIFT_UP_TORQUE = 0.4f;
+static const float SHIFT_DOWN_TORQUE = -0.4f;
+static const float SHIFT_NEUTRAL_FROM_1_TORQUE = 0.4f;
+static const float SHIFT_NEUTRAL_FROM_2_TORQUE = -0.4f;</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/759f25d2ff6a5e15ca7d30c35ee2f88f5d3e6319/production_firmware/main/tasks/gear_safety_task/gear_safety_task.cpp">Code block 7 - Torque calibration</a></span>
+          <span class="caption-note">Bench values remain to be tuned.</span>
+        </figcaption>
+      </figure>
+
+      <p>The neutral shift has separate torque values depending on whether it is being requested from first or second. That matters because neutral is a half-shift, and the mechanism approaches it from different directions.</p>
+
+      <p>This is also where I should complain about the ESC briefly. This is not a slight on Castle Creations. The Copperhead 10 is doing the job it was built to do, and there is nothing wrong with using a robust RC ESC if the rest of the system is designed around it properly.</p>
+
+      <p>That said, integrating an RC ESC into a safety-conscious embedded control system is more than just mildly annoying.</p>
+
+      <p>In an ideal world, the actuator interface would look more like this:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">motor.set_torque_nm(requested_torque_nm);</code></pre>
+        <figcaption>
+          <span class="caption-title">Code block 8 - Ideal actuator API</span>
+          <span class="caption-note">Request physical torque directly.</span>
+        </figcaption>
+      </figure>
+
+      <p>In our case, the interface is closer to:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">void ESC::set_torque(float torque)
+{
+    torque = std::clamp(torque, -1.0f, 1.0f);
+
+    float pulse_us = NEUTRAL_US;
+    if (torque &gt; 0.0f)
+        pulse_us += (FULL_FORWARD_US - NEUTRAL_US) * torque;
+    else if (torque &lt; 0.0f)
+        pulse_us += (NEUTRAL_US - FULL_REVERSE_US) * torque;
+
+    ledc_set_duty(LEDC_LOW_SPEED_MODE,
+                  PWM_CHANNEL,
+                  pulse_us_to_duty(pulse_us));
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/4e6c0654fd9c223dcbf0a6768e73b7458f574991/production_firmware/main/esc/ESC.cpp">Code block 9 - Actual ESC API</a></span>
+          <span class="caption-note">Torque becomes an RC pulse request.</span>
+        </figcaption>
+      </figure>
+
+      <p>Our firmware can still make this work, but it means the ESC has to be treated as something with state and configuration of its own, not just as a “dumb” output stage. The calibration values in the firmware are only one half of the story. The ESC settings matter as well, and the controller needs to be tested with the exact ESC configuration that will be used on the car.</p>
+
+      <p>This is also why I am quite conservative about clearing the ESC command. If a shift fails a precheck, times out, or loses encoder feedback, the firmware sends zero torque.</p>
+
+      <p>The active shift window is intentionally simple:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">esc.set_torque(shift_torque);
+const int64_t shift_start_us = esp_timer_get_time();
+
+while ((esp_timer_get_time() - shift_start_us) &lt; SHIFT_TIMEOUT_US)
+{
+    const ShiftPositionStatus status =
+        shifted_position_status(request, gear_count);
+
+    if (status == ShiftPositionStatus::Reached)
+        break;
+
+    if (status == ShiftPositionStatus::ReadFault)
+        break;
+}
+
+esc.set_torque(0.0f);</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/759f25d2ff6a5e15ca7d30c35ee2f88f5d3e6319/production_firmware/main/tasks/gear_safety_task/gear_safety_task.cpp">Code block 10 - Active shift loop</a></span>
+          <span class="caption-note">Torque clears on success, fault or timeout.</span>
+        </figcaption>
+      </figure>
+
+      <p>The task commands the ESC, polls the encoder, and stops as soon as the target is reached, the encoder fails, or the timeout expires.</p>
+
+      <p>The other half of the shift is feedback. The actuator position is measured using an AMT20 absolute encoder, and the driver follows the datasheet read-position sequence:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">uint8_t rx = 0;
+if (!transfer_byte(READ_POSITION, rx))
+    return false;
+
+bool acknowledged = false;
+for (int i = 0; i &lt; MAX_WAIT_BYTES; ++i)
+{
+    if (!transfer_byte(NOP, rx)) return false;
+    if (rx == READ_POSITION)
+    {
+        acknowledged = true;
+        break;
+    }
+    if (rx != WAIT) return false;
+}
+
+uint8_t msb = 0;
+uint8_t lsb = 0;
+if (!transfer_byte(NOP, msb) || !transfer_byte(NOP, lsb))
+    return false;
+
+position = static_cast&lt;uint16_t&gt;(((msb &amp; 0x0F) &lt;&lt; 8) | lsb);</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/4e6c0654fd9c223dcbf0a6768e73b7458f574991/production_firmware/main/encoder/AMT20.cpp">Code block 11 - AMT20 position read</a></span>
+          <span class="caption-note">The SPI reply is decoded to 12 bits.</span>
+        </figcaption>
+      </figure>
+
+      <p>The encoder returns a 12-bit position, so the value wraps from <code>4095</code> back to <code>0</code>. The position comparison therefore needs to handle wraparound properly:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">bool AMT20::position_is_near(uint16_t position,
+                             uint16_t target,
+                             uint16_t tolerance)
+{
+    position &amp;= 0x0FFF;
+    target &amp;= 0x0FFF;
+
+    const uint16_t forward = (position - target) &amp; 0x0FFF;
+    const uint16_t reverse = (target - position) &amp; 0x0FFF;
+    const uint16_t shortest = forward &lt; reverse ? forward : reverse;
+
+    return shortest &lt;= tolerance;
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/4e6c0654fd9c223dcbf0a6768e73b7458f574991/production_firmware/main/encoder/AMT20.cpp">Code block 12 - Position wraparound</a></span>
+          <span class="caption-note">The shortest modular distance wins.</span>
+        </figcaption>
+      </figure>
+
+      <p>That lets the firmware check whether the mechanism is close enough to the calibrated target position without getting confused near the encoder wrap point.</p>
+
+      <p>The target positions themselves still need to be measured on the assembled mechanism:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">static const uint16_t BASE_POSITION = 2502;
+static const uint16_t SHIFT_UP_STOP_POSITION = 2290;
+static const uint16_t SHIFT_DOWN_STOP_POSITION = 2670;
+static const uint16_t SHIFT_NEUTRAL_FROM_1_STOP_POSITION = BASE_POSITION;
+static const uint16_t SHIFT_NEUTRAL_FROM_2_STOP_POSITION = BASE_POSITION;
+static const uint16_t SHIFT_POSITION_TOLERANCE = 20;</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/759f25d2ff6a5e15ca7d30c35ee2f88f5d3e6319/production_firmware/main/tasks/gear_safety_task/gear_safety_task.cpp">Code block 13 - Encoder targets</a></span>
+          <span class="caption-note">Stops remain calibration values.</span>
+        </figcaption>
+      </figure>
+
+      <p>At the moment, these are placeholders. The firmware structure is there, but the mechanical calibration still needs to happen before the controller can be used properly on the car.</p>
+
+      <p>With all that out of the way, there are still a few jobs that need doing before the shifter can be considered fully operational:</p>
+
+      <ul>
+        <li>Measure the final encoder positions for upshift, downshift, and both neutral approaches.</li>
+        <li>Tune the shift torque values on the assembled mechanism.</li>
+        <li>Tune the shift timeout.</li>
+        <li>Confirm the ECU gear decoding against live CAN data.</li>
+        <li>Test neutral-from-first and neutral-from-second separately.</li>
+        <li>Test encoder read failures with the actuator safely unloaded.</li>
+        <li>Test timeout behaviour.</li>
+      </ul>
+
+      <p>The shift timeout is currently:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">static const int64_t SHIFT_TIMEOUT_US = 200000;</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/ManchesterStingerMotorsports/gear-shifter/blob/759f25d2ff6a5e15ca7d30c35ee2f88f5d3e6319/production_firmware/main/tasks/gear_safety_task/gear_safety_task.cpp">Code block 14 - Shift timeout</a></span>
+          <span class="caption-note">The actuation window is 200 ms.</span>
+        </figcaption>
+      </figure>
+
+      <p>That gives a 200 ms actuation window. Whether that is correct depends on the final mechanism, the ESC configuration, and how aggressive the shift can be without abusing the gearbox.</p>
+
+      <p>That is basically where the project is now. The firmware still needs calibration and testing against the real mechanism, but the important shape is there: the interrupt captures the request, the safety task owns the actuator, CAN provides the external gear state, and the encoder decides whether the shift actually happened.</p>
+
+      <p>That ties back to the original aim. The controller should not make gear shifts exciting. It should make them boring. A request comes in, the firmware checks it, the actuator moves only if it is allowed to, and the motor is stopped as soon as the shift is confirmed or something looks wrong.</p>
+
+      <p>As with my other articles, all the <a href="https://github.com/ManchesterStingerMotorsports/gear-shifter">code and schematics can be found on GitHub</a>.</p>
+    </article>
+  </main>
+
+  <script>
+    (function () {
+      const content = document.querySelector('.fade');
+      if (!content) return;
+
+      function showContent() {
+        content.classList.remove('is-leaving');
+        content.classList.add('is-visible');
+      }
+
+      requestAnimationFrame(showContent);
+      window.addEventListener('pageshow', showContent);
+
+      document.querySelectorAll('a[href]').forEach(a => {
+        const url = new URL(a.href, location.href);
+
+        if (url.origin !== location.origin) return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+
+        a.addEventListener('click', e => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+          e.preventDefault();
+          content.classList.remove('is-visible');
+          content.classList.add('is-leaving');
+
+          setTimeout(() => {
+            location.href = a.href;
+          }, 160);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
