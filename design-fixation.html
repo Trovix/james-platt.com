@@ -10,8 +10,8 @@
 <body>
   <main class="page">
     <nav class="nav" aria-label="Primary navigation">
-      <a href="index.html">About</a>
-      <a href="posts.html" aria-current="page">Posts</a>
+      <a href="/">About</a>
+      <a href="/posts" aria-current="page">Posts</a>
     </nav>
 
     <article class="post fade">
@@ -20,7 +20,7 @@
         <p class="post-date">Published <time datetime="2026-04-20">20 April 2026</time></p>
       </header>
 
-      <p>When I first started writing the software for <a href="luciferin-pt3.html">Luciferin</a>, the custom motor controller I built for Firefly&#39;s Greenpower car, one of the strategies I considered was controlling motor current using PID. I had a target current, a measured current and a PWM duty cycle that I could adjust, which looked sufficiently like a control problem that reaching for a PID controller felt almost compulsory.</p>
+<p>When I first started writing the software for <a href="/luciferin-pt3">Luciferin</a>, the custom motor controller I built for Firefly&#39;s Greenpower car, one of the strategies I considered was controlling motor current using PID. I had a target current, a measured current and a PWM duty cycle that I could adjust, which looked sufficiently like a control problem that reaching for a PID controller felt almost compulsory.</p>
 
       <p>This was not an entirely unreasonable idea. PID control is widely used, relatively easy to implement and, when applied to the right system, can prove to be extremely effective. It was also the most sophisticated control technique I knew at the time, which perhaps had more influence over the decision than I would have liked to admit. To a sixteen-year-old who had recently watched a YouTube video and read half a Wikipedia article, the temptation to use this interesting new technology was too great to resist.</p>
 
@@ -46,7 +46,7 @@
 
       <p>Fixation can begin with an external example, as it did in the coffee-cup experiment, but an example is not required. Designers can become attached to ideas they generated themselves, to methods that worked on previous projects or to assumptions embedded in the tools they use. In engineering, this often happens when a requirement is written in terms of an implementation. A specification that says a system must measure position leaves several options available; a specification that says it must use a particular encoder has already performed part of the design process, whether intentionally or not.</p>
 
-      <p>I encountered a similar problem while developing the <a href="making-gear-shifts-boring.html">electronic gear shifter</a> for Manchester Stinger Motorsports. My original plan was to perform the entire shift from the GPIO interrupt raised by the driver&#39;s paddle. The appeal was straightforward: the request would arrive, the interrupt would take control and nothing else could interfere until the gearbox had moved. It was an attractively direct model, rather like ensuring a meeting remains focused by locking everybody else out of the building.</p>
+<p>I encountered a similar problem while developing the <a href="/making-gear-shifts-boring">electronic gear shifter</a> for Manchester Stinger Motorsports. My original plan was to perform the entire shift from the GPIO interrupt raised by the driver&#39;s paddle. The appeal was straightforward: the request would arrive, the interrupt would take control and nothing else could interfere until the gearbox had moved. It was an attractively direct model, rather like ensuring a meeting remains focused by locking everybody else out of the building.</p>
 
       <p>Unfortunately, a gear shift is a relatively long mechanical event, while interrupt handlers are intended to complete quickly. Waiting for an actuator and repeatedly reading an encoder from interrupt context would have interfered with timers, watchdog servicing and driver code that quite reasonably expects the rest of the processor to remain alive. The final implementation reduced the interrupt&#39;s role to capturing the request, disabling further shift inputs and waking a high-priority task that owns the actuator.</p>
 

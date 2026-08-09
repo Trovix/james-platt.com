@@ -16,8 +16,8 @@
 <body>
   <main class="page">
     <nav class="nav" aria-label="Primary navigation">
-      <a href="index.html">About</a>
-      <a href="posts.html" aria-current="page">Posts</a>
+      <a href="/">About</a>
+      <a href="/posts" aria-current="page">Posts</a>
     </nav>
 
     <article class="post fade">
@@ -110,7 +110,7 @@
 
       <p>To avoid this, the switching frequency must be high enough that the motor inductance does not fully discharge during the off-time of the PWM cycle. Based on the measured electrical characteristics of the Greenpower motor, the winding current decays on the order of a few milliseconds, implying a minimum switching frequency of a few hundred hertz to prevent current reversal. In practice, the motor is switched at a much higher frequency of 20 kHz, ensuring continuous positive current while also moving switching artefacts beyond the audible range.</p>
 
-      <p>An additional consideration is that if both MOSFETs were ever turned on at the same time, even briefly, they would form a direct short across the supply, with predictably catastrophic results. Preventing this requires careful timing of the switching signals, a problem that quickly becomes more interesting than it first appears. How this is handled, along with the full schematic of the controller and its peripherals, is the focus of <a href="luciferin-pt2.html">Part 2</a>.</p>
+<p>An additional consideration is that if both MOSFETs were ever turned on at the same time, even briefly, they would form a direct short across the supply, with predictably catastrophic results. Preventing this requires careful timing of the switching signals, a problem that quickly becomes more interesting than it first appears. How this is handled, along with the full schematic of the controller and its peripherals, is the focus of <a href="/luciferin-pt2">Part 2</a>.</p>
     </article>
   </main>
 

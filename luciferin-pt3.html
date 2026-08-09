@@ -13,8 +13,8 @@
 <body>
   <main class="page">
     <nav class="nav" aria-label="Primary navigation">
-      <a href="index.html">About</a>
-      <a href="posts.html" aria-current="page">Posts</a>
+      <a href="/">About</a>
+      <a href="/posts" aria-current="page">Posts</a>
     </nav>
 
     <article class="post fade">
@@ -23,7 +23,7 @@
         <p class="post-date">Published <time datetime="2026-03-02">2 March 2026</time></p>
       </header>
 
-      <p>This is the third article in the series documenting the design and implementation of Luciferin, a custom motor controller for Firefly’s Greenpower F24+ car. <a href="luciferin-pt1-motor-control.html">Part 1</a> examined the electrical behaviour of the motor and justified the use of synchronous rectification. <a href="luciferin-pt2.html">Part 2</a> focused on the practical realities of implementing that in hardware, from floating gate drive to deadtime. As with the two previous instalments, this article can be read independently. However, to fully appreciate the rationale behind some of the decisions discussed here, I recommend at least skimming Parts 1 and 2 beforehand.</p>
+<p>This is the third article in the series documenting the design and implementation of Luciferin, a custom motor controller for Firefly’s Greenpower F24+ car. <a href="/luciferin-pt1-motor-control">Part 1</a> examined the electrical behaviour of the motor and justified the use of synchronous rectification. <a href="/luciferin-pt2">Part 2</a> focused on the practical realities of implementing that in hardware, from floating gate drive to deadtime. As with the two previous instalments, this article can be read independently. However, to fully appreciate the rationale behind some of the decisions discussed here, I recommend at least skimming Parts 1 and 2 beforehand.</p>
 
       <p>With the hardware complete, the remaining question is not how to switch the motor, but how it ought to be controlled. In a power-limited endurance series, the objective is not simply to produce torque, but to distribute a finite quantity of energy over the course of an hour in a way that minimises waste and maximises lap time. This article therefore moves into software: using measured current, vehicle speed and environmental inputs to determine how much power the motor should receive at any given moment, and why.</p>
 

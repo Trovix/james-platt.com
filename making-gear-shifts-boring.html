@@ -14,8 +14,8 @@
 <body>
   <main class="page">
     <nav class="nav" aria-label="Primary navigation">
-      <a href="index.html">About</a>
-      <a href="posts.html" aria-current="page">Posts</a>
+      <a href="/">About</a>
+      <a href="/posts" aria-current="page">Posts</a>
     </nav>
 
     <article class="post fade">
@@ -34,7 +34,7 @@
 
       <p>So the important part of the project has not really been making the motor move. Making motors move is easy. Making sure the motor only moves when the shift request is valid, the state is fresh, the encoder is alive, and the controller knows how to stop, is the actual problem.</p>
 
-      <p>The controller is built around an ESP32-S3 running ESP-IDF. It talks to the car over CAN bus, drives the shift actuator through a Castle Creations Copperhead 10 ESC and motor, and reads the actuator position using a Samesky AMT20 absolute encoder over SPI. It uses the ESP32’s internal CAN controller (TWAI) in combination with my <a href="building-a-can-bus-library.html">custom CAN library</a> to read CAN packets from the ECU.</p>
+<p>The controller is built around an ESP32-S3 running ESP-IDF. It talks to the car over CAN bus, drives the shift actuator through a Castle Creations Copperhead 10 ESC and motor, and reads the actuator position using a Samesky AMT20 absolute encoder over SPI. It uses the ESP32’s internal CAN controller (TWAI) in combination with my <a href="/building-a-can-bus-library">custom CAN library</a> to read CAN packets from the ECU.</p>
 
       <p>This allows the controller to keep an internal gear count without blindly trusting itself. Before sending a torque command to the ESC, it reconciles that count with a fresh ECU gear packet from CAN, calculated from the ratio between engine speed and transmission output speed.</p>
 
