@@ -1,0 +1,75 @@
+<!-- Hello there, what are you doing nosing round my html?? -->
+
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>James Platt</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <main class="page">
+    <nav class="nav">
+      <a href="index.html" aria-current="page">About</a>
+      <a href="posts.html">Posts</a>
+    </nav>
+
+    <div class="fade">
+      <strong>James Platt</strong><br><br>
+
+      <p>
+        I am an Electronics Engineer at <a href="https://www.manchester.ac.uk/">The University of Manchester</a>
+        and the Electronics Sub-team Lead for their Formula Student team, Manchester Stinger Motorsports.
+      </p>
+
+      <p>
+        My interests sit at the intersection of embedded systems, hardware design, low-level software (primarily C/C++), and more recently, FPGA development in VHDL.
+      </p>
+
+      <p>
+        Since school, I’ve spent years building things; from CAN nodes to mesh radio networks. I use this website to document a collection of both completed and ongoing projects, in a slightly less formal style than I’ve used before.
+      </p>
+
+      <p>
+        You can find more through my <a href="posts.html">posts</a>, or find me on
+        <a href="https://github.com/Trovix">GitHub</a>, and <a href="https://www.linkedin.com/in/james-platt-7324a4337">LinkedIn</a>.
+      </p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const content = document.querySelector('.fade');
+      if (!content) return;
+
+      function showContent() {
+        content.classList.remove('is-leaving');
+        content.classList.add('is-visible');
+      }
+
+      requestAnimationFrame(showContent);
+      window.addEventListener('pageshow', showContent);
+
+      document.querySelectorAll('a[href]').forEach(a => {
+        const url = new URL(a.href, location.href);
+
+        if (url.origin !== location.origin) return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+
+        a.addEventListener('click', e => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+          e.preventDefault();
+          content.classList.remove('is-visible');
+          content.classList.add('is-leaving');
+
+          setTimeout(() => {
+            location.href = a.href;
+          }, 160);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
