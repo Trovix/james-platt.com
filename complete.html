@@ -8,14 +8,36 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body class="diagnostic-page">
-  <main class="diagnostic-screen">
-    <p class="diagnostic-status">RECOVERY COMPLETE</p>
-    <dl>
-      <div><dt>SOURCE</dt><dd>UNKNOWN</dd></div>
-      <div><dt>NODE</dt><dd>0x00A</dd></div>
-      <div><dt>STATUS</dt><dd>ONLINE</dd></div>
-    </dl>
-    <p class="diagnostic-message">THE FRAME WAS NEVER THE MESSAGE</p>
+  <main class="diagnostic-screen" aria-labelledby="recovery-title">
+    <div class="diagnostic-topline">
+      <p>NODE 0x00A / RECOVERY CHANNEL</p>
+      <p class="diagnostic-signal"><span aria-hidden="true"></span>SIGNAL LOCKED</p>
+    </div>
+
+    <h1 class="diagnostic-heading" id="recovery-title">
+      <span>RECOVERY</span>
+      <span>COMPLETE</span>
+    </h1>
+
+    <div class="recovery-progress" aria-hidden="true"><span></span></div>
+
+    <ul class="diagnostic-checks" aria-label="Recovery results">
+      <li><span aria-hidden="true">✓</span>FRAME IDENTIFIED</li>
+      <li><span aria-hidden="true">✓</span>CARRIER RECONSTRUCTED</li>
+      <li><span aria-hidden="true">✓</span>RECOVERY SHELL ACCESSED</li>
+      <li><span aria-hidden="true">✓</span>NODE 0x00A RESTORED</li>
+    </ul>
+
+    <section class="recovered-message" aria-label="Recovered transmission">
+      <p class="recovered-label">RECOVERED TRANSMISSION</p>
+      <p class="diagnostic-message">ALL STAGES CLEARED.</p>
+      <p class="diagnostic-reveal">ACCESS GRANTED.</p>
+    </section>
+
+    <footer class="diagnostic-footer">
+      <p>SESSION VERIFIED <span aria-hidden="true">//</span> WELL DONE</p>
+      <a class="diagnostic-return" href="posts.html">return to posts</a>
+    </footer>
   </main>
 </body>
 </html>
