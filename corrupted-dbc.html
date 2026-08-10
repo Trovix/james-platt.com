@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A recovered CAN 2.0A frame." />
+  <title>node_00a.dbc - James Platt</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="/">About</a>
+      <a href="/posts" aria-current="page">Posts</a>
+    </nav>
+
+    <article class="post fade arg-entry">
+      <header class="post-header">
+        <h1>node_00a.dbc</h1>
+        <p class="post-date">Published <time>????-??-??</time></p>
+      </header>
+
+      <section class="can-frame" aria-label="CAN 2.0A frame">
+        <p class="can-frame-standard">CAN 2.0A</p>
+        <dl>
+          <div>
+            <dt>ID</dt>
+            <dd>0x00A</dd>
+          </div>
+          <div>
+            <dt>DLC</dt>
+            <dd>8</dd>
+          </div>
+          <div>
+            <dt>DATA</dt>
+            <dd>64 75 6D 70 2E 62 69 6E</dd>
+          </div>
+        </dl>
+      </section>
+    </article>
+  </main>
+
+  <script>
+    (function () {
+      const content = document.querySelector('.fade');
+      if (!content) return;
+
+      function showContent() {
+        content.classList.remove('is-leaving');
+        content.classList.add('is-visible');
+      }
+
+      requestAnimationFrame(showContent);
+      window.addEventListener('pageshow', showContent);
+
+      document.querySelectorAll('a[href]').forEach(a => {
+        const url = new URL(a.href, location.href);
+
+        if (url.origin !== location.origin) return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+
+        a.addEventListener('click', e => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+          e.preventDefault();
+          content.classList.remove('is-visible');
+          content.classList.add('is-leaving');
+
+          setTimeout(() => {
+            location.href = a.href;
+          }, 160);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

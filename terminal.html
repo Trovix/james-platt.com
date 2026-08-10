@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Recovery shell</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body class="terminal-page">
+  <main class="recovery-terminal" aria-label="Recovery shell">
+    <div class="terminal-bar" aria-hidden="true">
+      <span></span><span></span><span></span>
+      <p>recovery@node-00a:~</p>
+    </div>
+    <div class="terminal-body" id="terminal-body">
+      <div class="terminal-output" id="terminal-output" role="log" aria-live="polite" aria-relevant="additions">
+        <p>RECOVERY SHELL 0.0.3</p>
+        <p>Type <span class="terminal-command">help</span> for available commands.</p>
+      </div>
+      <form class="terminal-prompt" id="terminal-form" autocomplete="off">
+        <label for="terminal-input"><span aria-hidden="true">$</span><span class="sr-only">Command</span></label>
+        <input id="terminal-input" name="command" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" autofocus />
+      </form>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById('terminal-form');
+      const input = document.getElementById('terminal-input');
+      const output = document.getElementById('terminal-output');
+      const body = document.getElementById('terminal-body');
+
+      const commands = {
+        help: [
+          'Available commands:',
+          '  help                 show this message',
+          '  ls                   list recovered files',
+          '  cat &lt;file&gt;           print a recovered file',
+          '  clear                clear the terminal'
+        ],
+        ls: ['fragment.b64'],
+        'cat fragment.b64': ['Y29tcGxldGUuaHRtbA==']
+      };
+
+      function line(html, className) {
+        const paragraph = document.createElement('p');
+        if (className) paragraph.className = className;
+        paragraph.innerHTML = html;
+        output.appendChild(paragraph);
+      }
+
+      function run(rawCommand) {
+        const command = rawCommand.trim().replace(/\s+/g, ' ');
+        line('<span aria-hidden="true">$ </span>' + escapeHtml(rawCommand), 'terminal-history');
+
+        if (!command) return;
+
+        if (command === 'clear') {
+          output.replaceChildren();
+          return;
+        }
+
+        const response = commands[command.toLowerCase()];
+        if (response) {
+          response.forEach(item => line(item));
+        } else if (command.toLowerCase() === 'cat') {
+          line('usage: cat &lt;file&gt;', 'terminal-error');
+        } else if (command.toLowerCase().startsWith('cat ')) {
+          line('cat: ' + escapeHtml(command.slice(4)) + ': no such file', 'terminal-error');
+        } else {
+          line(escapeHtml(command) + ': command not found; try \'help\'', 'terminal-error');
+        }
+      }
+
+      function escapeHtml(value) {
+        return value.replace(/[&<>"']/g, character => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        })[character]);
+      }
+
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        run(input.value);
+        input.value = '';
+        body.scrollTop = body.scrollHeight;
+      });
+
+      document.addEventListener('click', () => input.focus());
+    })();
+  </script>
+</body>
+</html>
