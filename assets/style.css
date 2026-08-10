@@ -371,6 +371,18 @@ p{
   overflow-wrap: anywhere;
 }
 
+.terminal-output .terminal-spacer{
+  margin-top: 1.25rem;
+}
+
+.terminal-return{
+  color: #829e87;
+}
+
+.terminal-return:hover{
+  color: #f2fff4;
+}
+
 .terminal-command,
 .terminal-history{
   color: #f2fff4;

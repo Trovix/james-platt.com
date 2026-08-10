@@ -7,37 +7,21 @@
   <title>Recovery complete</title>
   <link rel="stylesheet" href="assets/style.css" />
 </head>
-<body class="diagnostic-page">
-  <main class="diagnostic-screen" aria-labelledby="recovery-title">
-    <div class="diagnostic-topline">
-      <p>NODE 0x00A / RECOVERY CHANNEL</p>
-      <p class="diagnostic-signal"><span aria-hidden="true"></span>SIGNAL LOCKED</p>
+<body class="terminal-page">
+  <main class="recovery-terminal" aria-label="Recovery complete">
+    <div class="terminal-bar" aria-hidden="true">
+      <span></span><span></span><span></span>
+      <p>recovery@node-00a:~</p>
     </div>
-
-    <h1 class="diagnostic-heading" id="recovery-title">
-      <span>RECOVERY</span>
-      <span>COMPLETE</span>
-    </h1>
-
-    <div class="recovery-progress" aria-hidden="true"><span></span></div>
-
-    <ul class="diagnostic-checks" aria-label="Recovery results">
-      <li><span aria-hidden="true">✓</span>FRAME IDENTIFIED</li>
-      <li><span aria-hidden="true">✓</span>CARRIER RECONSTRUCTED</li>
-      <li><span aria-hidden="true">✓</span>RECOVERY SHELL ACCESSED</li>
-      <li><span aria-hidden="true">✓</span>NODE 0x00A RESTORED</li>
-    </ul>
-
-    <section class="recovered-message" aria-label="Recovered transmission">
-      <p class="recovered-label">RECOVERED TRANSMISSION</p>
-      <p class="diagnostic-message">ALL STAGES CLEARED.</p>
-      <p class="diagnostic-reveal">ACCESS GRANTED.</p>
-    </section>
-
-    <footer class="diagnostic-footer">
-      <p>SESSION VERIFIED <span aria-hidden="true">//</span> WELL DONE</p>
-      <a class="diagnostic-return" href="posts.html">return to posts</a>
-    </footer>
+    <div class="terminal-body">
+      <div class="terminal-output">
+        <p>RECOVERY COMPLETE</p>
+        <p class="terminal-spacer">ALL STAGES CLEARED.</p>
+        <p>ACCESS GRANTED.</p>
+        <p class="terminal-spacer">SESSION VERIFIED // WELL DONE</p>
+        <p><a class="terminal-return" href="posts.html">return to posts</a></p>
+      </div>
+    </div>
   </main>
 </body>
 </html>
