@@ -38,7 +38,7 @@
         </figcaption>
       </figure>
 
-      <p>F24+ is a power-limited electric racing series in which every team is required to use the same unmodified batteries and motor. As a result, outright performance is not determined by peak power output or grip, but rather by how efficiently a car is able to convert a fixed amount of stored energy into lap time. In F24+, races last one hour, and the goal is to go as fast as possible for the entire duration without running out of energy prematurely or finishing the race having failed to extract all of the usable capacity from the batteries.</p>
+      <p>F24+ is a power-limited electric racing series in which every team is required to use the same unmodified batteries and motor. As a result outright performance is determined by how efficiently a car is able to convert a fixed amount of stored energy into lap time. In F24+, races last one hour, and the goal is to go as fast as possible for the entire duration without running out of energy prematurely or finishing the race having failed to extract all of the energy from the batteries.</p>
 
       <p>Drawing too much current early in the race can lead to rapid voltage sag and a disproportionate loss of usable battery capacity, however, being overly conservative results in unused energy and slow lap times. Historically, Firefly's primary means of managing this trade-off was through the choice of a fixed gear ratio selected before the race (a common strategy employed by Greenpower teams). Although this can prove to be quite effective, once the race begins, the car can no longer adapt to changing conditions such as battery health, gradients or wind. Any attempt to introduce adaptability through mechanical means, such as including multiple gear ratios, would introduce an unacceptable level of complexity, increased mass and potential reliability risk.</p>
 
@@ -54,7 +54,7 @@
         </figcaption>
       </figure>
 
-      <p>This means that drawing twice the current does not halve the available runtime but rather harms it by significantly more. For the <a href="https://www.yuasa.co.uk/yuasa/datasheet/index/sku/REC36-12I/">Yuasa REC36 batteries</a> used by Firefly, experimental discharge data from our battery dyno showed a Peukert exponent of approximately 1.2; typical for lead-acid chemistry. At this value, doubling the discharge current reduces the usable discharge time to around 43% of what would be expected under ideal conditions.</p>
+      <p>This means that drawing twice the current does not halve the available runtime but actually harms it by significantly more. For the <a href="https://www.yuasa.co.uk/yuasa/datasheet/index/sku/REC36-12I/">Yuasa REC36 batteries</a> used by Firefly, experimental discharge data from our battery dyno showed a Peukert exponent of approximately 1.2; typical for lead-acid chemistry. At this value, doubling the discharge current reduces the usable discharge time to around 43% of what would be expected under ideal conditions.</p>
 
       <p>Crucially, this penalty is asymmetric. High current spikes are more damaging to overall efficiency than low current periods are rewarding. As a result, overall energy output is maximised by keeping current draw smooth and consistent over the course of the race. Short bursts of aggressive acceleration (and therefore current draw) cost more usable energy than they gain in lap time, even if average power output may still appear reasonable.</p>
 
