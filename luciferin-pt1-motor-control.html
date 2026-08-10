@@ -23,10 +23,10 @@
     <article class="post fade">
       <header class="post-header">
         <h1>Luciferin pt1: Motor control</h1>
-        <p class="post-date">Published <time datetime="2026-02-02">2 February 2026</time></p>
+        <p class="post-date">Published <time datetime="2026-02-02">02-02-2026</time></p>
       </header>
 
-      <p>This is the first in a series of posts discussing the research, design work and fabrication of a custom motor controller for my school’s racing team, <a href="https://www.stpaulsschool.org.uk/beyond-the-classroom/societies/senior-societies-13-16/team-firefly/">Firefly</a>, competing in the <a href="https://www.greenpower.co.uk/">Greenpower</a> F24+ championship.</p>
+      <p>This is the first in a series of posts discussing the research, design work and fabrication of a custom motor controller for my school's racing team, <a href="https://www.stpaulsschool.org.uk/beyond-the-classroom/societies/senior-societies-13-16/team-firefly/">Firefly</a>, competing in the <a href="https://www.greenpower.co.uk/">Greenpower</a> F24+ championship.</p>
 
       <p>The name Luciferin came from the substrate of the enzyme <a href="https://en.wikipedia.org/wiki/Luciferase">luciferase</a> and is responsible for making fireflies glow. In a similar sense, this project was designed to give Firefly a competitive edge on track.</p>
 
@@ -38,31 +38,31 @@
         </figcaption>
       </figure>
 
-      <p>F24+ is a power-limited electric racing series in which every team is required to use the same unmodified batteries and motor. As a result, outright performance is not determined by peak power output or grip, but rather by how efficiently a car is able to convert a fixed amount of stored energy into lap time. In F24+, races last one hour, and the challenge is not simply to be fast, but to be fast for the entire duration without running out of energy prematurely or finishing the race having failed to extract all of the usable capacity from the batteries.</p>
+      <p>F24+ is a power-limited electric racing series in which every team is required to use the same unmodified batteries and motor. As a result, outright performance is not determined by peak power output or grip, but rather by how efficiently a car is able to convert a fixed amount of stored energy into lap time. In F24+, races last one hour, and the goal is to go as fast as possible for the entire duration without running out of energy prematurely or finishing the race having failed to extract all of the usable capacity from the batteries.</p>
 
-      <p>In practice, this creates a narrow operating window. Drawing too much current early in the race leads to rapid voltage sag and a disproportionate loss of usable battery capacity, while being overly conservative results in unused energy and lost lap time. Historically, Firefly’s primary means of managing this trade-off was through the choice of a fixed gear ratio selected before the race. While effective to a degree, this approach is inherently static: once the race begins, the car cannot adapt to changing conditions such as battery health, track layout, gradients or wind. Any attempt to introduce adaptability through mechanical means, such as including multiple gear ratios, would introduce unacceptable complexity, mass and reliability risk.</p>
+      <p>Drawing too much current early in the race can lead to rapid voltage sag and a disproportionate loss of usable battery capacity, however, being overly conservative results in unused energy and slow lap times. Historically, Firefly's primary means of managing this trade-off was through the choice of a fixed gear ratio selected before the race (a common strategy employed by Greenpower teams). Although this can prove to be quite effective, once the race begins, the car can no longer adapt to changing conditions such as battery health, gradients or wind. Any attempt to introduce adaptability through mechanical means, such as including multiple gear ratios, would introduce an unacceptable level of complexity, increased mass and potential reliability risk.</p>
 
       <p>This left motor control as a promising idea to pursue. While there were clearly mechanical efficiency gains to be made elsewhere on the car through drivetrain optimisation, rolling resistance and aerodynamic refinement, I wanted to focus on how I could make the car able to dynamically adapt to a changing environment. How current is delivered to the motor has a direct impact on both motor efficiency and battery performance.</p>
 
-      <p>A key motivation for this work came from the behaviour of the lead-acid batteries used in Greenpower. Unlike an ideal energy source, the usable capacity of a lead-acid battery depends strongly on how quickly it is discharged. This relationship is described by <a href="https://en.wikipedia.org/wiki/Peukert%27s_law">Peukert’s law</a>:</p>
+      <p>A key consideration for this work was the behaviour of the lead-acid batteries. Unlike an ideal energy source, the usable capacity of a lead-acid battery depends on how quickly it is discharged. This relationship is described by <a href="https://en.wikipedia.org/wiki/Peukert%27s_law">Peukert's law</a>:</p>
 
       <figure class="equation">
         <div class="math" aria-label="t equals C sub p divided by I to the power k">\[t = \frac{C_p}{I^k}\]</div>
         <figcaption>
-          <span class="caption-title">Equation 1 - Peukert’s law</span>
+          <span class="caption-title">Equation 1 - Peukert's law</span>
           <span class="caption-note">Runtime falls nonlinearly as discharge current rises.</span>
         </figcaption>
       </figure>
 
-      <p>In practical terms, this means that drawing twice the current does not halve the available runtime but rather reduces it by significantly more. For the <a href="https://www.yuasa.co.uk/yuasa/datasheet/index/sku/REC36-12I/">Yuasa REC36 batteries</a> used by Firefly, experimental discharge data showed a Peukert exponent of approximately 1.2, which is typical for lead-acid chemistry. At this value, doubling the discharge current reduces the usable discharge time to around 43% of what would be expected under ideal conditions, rather than the 50% suggested by simple linear reasoning.</p>
+      <p>This means that drawing twice the current does not halve the available runtime but rather harms it by significantly more. For the <a href="https://www.yuasa.co.uk/yuasa/datasheet/index/sku/REC36-12I/">Yuasa REC36 batteries</a> used by Firefly, experimental discharge data from our battery dyno showed a Peukert exponent of approximately 1.2; typical for lead-acid chemistry. At this value, doubling the discharge current reduces the usable discharge time to around 43% of what would be expected under ideal conditions.</p>
 
-      <p>Most crucially of all, this penalty is asymmetric. High current spikes are far more damaging to overall efficiency than low current periods are beneficial. As a result, overall energy extraction is maximised by keeping current draw as smooth and consistent as possible over the course of the race. Short bursts of aggressive acceleration can cost more usable energy than they gain in lap time, even if average power appears reasonable.</p>
+      <p>Crucially, this penalty is asymmetric. High current spikes are more damaging to overall efficiency than low current periods are rewarding. As a result, overall energy output is maximised by keeping current draw smooth and consistent over the course of the race. Short bursts of aggressive acceleration (and therefore current draw) cost more usable energy than they gain in lap time, even if average power output may still appear reasonable.</p>
 
-      <p>This alone justified the need for a motor controller. Off-the-shelf solutions do exist, such as the ones provided by <a href="https://www.4qd.co.uk/">Porter 4QD</a>, but where’s the fun in that?</p>
+      <p>This alone justified the need for a motor controller. Off-the-shelf solutions do exist, such as the ones provided by <a href="https://www.4qd.co.uk/">Porter 4QD</a>, but where's the fun in that?</p>
 
       <p>Jokes aside, a custom solution has its benefits. We get to define the switching characteristics and gain the ability to write more complex control algorithms defining motor behaviour.</p>
 
-      <p>The base theory behind motor control is to turn the motor on and off at a very high frequency so that the motor “sees” a lower voltage than what is actually being supplied to it. Anyone with any experience in electronics will recognise this as a description of PWM. If we were to treat the motor as a nice, well-behaved passive load, the simplest possible “motor controller” would look something like Figure 1, where a control signal switches a MOSFET which in turn switches the motor on and off.</p>
+      <p>The base theory behind motor control is to turn the motor on and off at a very high frequency so that the motor "sees" a lower voltage than what is actually being supplied to it. Anyone with any experience in electronics will recognise this as a description of PWM. If we were to treat the motor as a nice, well-behaved passive load, the simplest possible "motor controller" would look something like Figure 1, where a control signal switches a MOSFET which in turn switches the motor on and off.</p>
 
       <figure class="figure">
         <img src="assets/article-2/motor-controller-naive.png" width="858" height="829" alt="Naive motor controller circuit with a MOSFET switching a motor directly" />
@@ -76,7 +76,7 @@
 
       <p>While all three are important, it is the inductive behaviour of the motor that becomes critical once the supply is switched. The inductance resists changes in current, and will generate potentially very high voltages in order to keep current flowing when the external power source is disconnected.</p>
 
-      <p>It should now be clear why the circuit shown in Figure 1 fails. When the control signal goes low and the MOSFET turns off, the inductance of the motor winding resists the sudden interruption of current. In doing so, the motor generates a large voltage in an attempt to keep current flowing. In the absence of any additional protection, this behaviour can exceed the MOSFET’s safe operating limits, resulting in the release of the all-too-familiar <a href="https://en.wikipedia.org/wiki/Magic_smoke"><em>magic smoke</em></a>.</p>
+      <p>It should now be clear why the circuit shown in Figure 1 fails. When the control signal goes low and the MOSFET turns off, the inductance of the motor winding resists the sudden interruption of current. In doing so, the motor generates a large potential difference in an attempt to keep current flowing. In the absence of any additional protection, this behaviour can exceed the MOSFET's safe operating limits, resulting in the release of the all-too-familiar <a href="https://en.wikipedia.org/wiki/Magic_smoke"><em>magic smoke</em></a>.</p>
 
       <p>The solution is actually quite simple. We provide an additional path for current to flow in the case that power is disconnected in the form of a diode. This is depicted in Figure 2:</p>
 
@@ -110,7 +110,7 @@
 
       <p>To avoid this, the switching frequency must be high enough that the motor inductance does not fully discharge during the off-time of the PWM cycle. Based on the measured electrical characteristics of the Greenpower motor, the winding current decays on the order of a few milliseconds, implying a minimum switching frequency of a few hundred hertz to prevent current reversal. In practice, the motor is switched at a much higher frequency of 20 kHz, ensuring continuous positive current while also moving switching artefacts beyond the audible range.</p>
 
-<p>An additional consideration is that if both MOSFETs were ever turned on at the same time, even briefly, they would form a direct short across the supply, with predictably catastrophic results. Preventing this requires careful timing of the switching signals, a problem that quickly becomes more interesting than it first appears. How this is handled, along with the full schematic of the controller and its peripherals, is the focus of <a href="/luciferin-pt2">Part 2</a>.</p>
+<p>An additional consideration is that if both MOSFETs were ever turned on at the same time, even extremely breifly, they would form a direct short across the supply. The way to prevent this is with careful timing of the switching signals. How this is handled, along with the full schematic of the controller and its peripherals, is the focus of <a href="/luciferin-pt2">Part 2</a>.</p>
     </article>
   </main>
 
