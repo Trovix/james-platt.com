@@ -50,7 +50,7 @@ a:hover{
   text-decoration: none;
 }
 
-.nav a:not([aria-current="page"]){
+.nav a[aria-current="page"]{
   text-decoration: underline;
   text-underline-offset: 4px;
 }
