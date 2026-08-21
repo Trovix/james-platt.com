@@ -195,6 +195,8 @@ if (g_subs_mutex &amp;&amp;
       <p>The library does not attempt to reinvent CAN. It does not implement a higher-layer protocol. Its purpose is narrower and more deliberate: encode architectural decisions directly into the interface through which the bus is accessed. By reducing the interaction surface to five operations and embedding guardrails at the boundary, the structure defined during ID allocation becomes difficult to violate accidentally as the system evolves.</p>
 
       <p>Once multiple nodes depend on each other’s data, structure stops being optional. It would have been easier for me to define the ID ranges and leave interaction with the TWAI driver to individual implementation. Instead, the boundaries were built into the interface itself. The ID allocation, the guardrails and the wrapper impose discipline that does not rely on institutional memory or personal oversight. The result is a network whose structure persists, even as contributors change.</p>
+
+      <footer class="post-footer"><a href="/posts">Back to posts</a></footer>
     </article>
   </main>
 
