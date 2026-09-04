@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title description">
+  <title id="title">Converging market prices</title>
+  <desc id="description">A red price line falls while a blue price line rises until they meet.</desc>
+
+  <rect width="1200" height="675" fill="#fffefd"/>
+
+  <g stroke="#e2e0dc" stroke-width="2">
+    <path d="M132 92H1120"/>
+    <path d="M132 205H1120"/>
+    <path d="M132 318H1120"/>
+    <path d="M132 431H1120"/>
+    <path d="M132 544H1120"/>
+  </g>
+
+  <g stroke="#8b8c8e" stroke-width="3">
+    <path d="M132 76V544"/>
+    <path d="M132 544H1120"/>
+  </g>
+
+  <g fill="#626468" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="25" text-anchor="end">
+    <text x="108" y="101">70¢</text>
+    <text x="108" y="214">60¢</text>
+    <text x="108" y="327">50¢</text>
+    <text x="108" y="440">40¢</text>
+    <text x="108" y="553">30¢</text>
+  </g>
+
+  <polyline
+    points="132,103 296,130 460,171 624,220 788,263 952,299 1120,318"
+    fill="none"
+    stroke="#d84a4a"
+    stroke-width="9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <polyline
+    points="132,533 296,495 460,451 624,408 788,369 952,338 1120,318"
+    fill="none"
+    stroke="#3478c9"
+    stroke-width="9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
