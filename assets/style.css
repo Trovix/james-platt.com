@@ -153,10 +153,6 @@ p{
   object-fit: cover;
 }
 
-.project-card:nth-child(-n + 2) .project-image{
-  object-fit: contain;
-}
-
 .project-title{
   margin: 0 0 .3rem;
   font-size: 1.05rem;
