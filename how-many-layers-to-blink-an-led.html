@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="How Arduino evolved from a thin abstraction over an 8-bit microcontroller into an embedded software platform, and what that changes for beginners." />
+  <title>How Many Layers Should It Take to Blink an LED? - James Platt</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" />
+  <link rel="stylesheet" href="assets/style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-cpp.min.js"></script>
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Primary navigation">
+      <a href="/">About</a>
+      <a href="/posts" aria-current="page">Posts</a>
+    </nav>
+
+    <article class="post fade">
+      <header class="post-header">
+        <h1>How Many Layers Should It Take to Blink an LED?</h1>
+        <p class="post-deck">How Arduino drifted from a thin abstraction over bare metal into an embedded software platform… and why I don’t like that.</p>
+        <p class="post-date">Published <time datetime="2026-09-04">04-09-2026</time></p>
+      </header>
+
+      <p>I was talking to my friend Alex, who works at Red Bull F1, and he was giving me some advice on my placement applications. We briefly discussed what had got us interested in electronics and agreed that Arduino was a major stepping stone for both of us. The article below represents my thoughts on the “old” Arduino, how it compares to the “new” Arduino (post-Qualcomm acquisition) and why I think part of what made it special is now gone.</p>
+
+      <p>When I started using Arduino, I was fourteen years old. I was fortunate enough to have been introduced to it through school (thanks, Dr Patterson!). As part of our engineering curriculum, we learnt the basics of “systems and control” using Arduino to do basic things such as reading sensors, controlling servos and blinking LEDs.</p>
+
+      <aside class="aside">
+        <p class="aside-title">Aside - MicroPython and how to teach embedded systems</p>
+        <p>My school now teaches MicroPython instead of Arduino. I don’t have a fully formed opinion about this, as I haven’t used it much myself, but I suspect that many of my concerns about the Arduino Q’s increased scope apply even more strongly to an interpreted language running on a microcontroller.</p>
+        <p>That is not to say I cannot see the value of heavily abstracted programming. Python is an undeniably cool language, and I use it regularly for scripting and throwaway tasks. MicroPython also gives beginners an interactive environment in which they can make hardware do interesting things very quickly, while being much easier to teach than C++. My concern is that, once you consider the interpreter, garbage collector and runtime, we are placing much more between the student and the metal. I see value in starting as close as reasonably possible to the metal and building upwards, rather than beginning at the top and attempting to dig down later.</p>
+        <p>There is, of course, a limit, and if you had shown fourteen-year-old me assembly instead of Arduino, I would probably have pursued a classics degree instead of EEE.</p>
+      </aside>
+
+      <p>Arduino was an effective abstraction. It made embedded programming approachable while leaving a short, discoverable route from the friendly API to the underlying hardware registers. Modern Arduino attempts to present the same programming model on top of a much larger embedded platform: SDKs, HALs, schedulers, background tasks, wireless services and, on some boards, a whole second processor running Linux.</p>
+
+      <p>Before I spend the rest of this article whinging about how Arduino has lost its charm, I should clarify that these layers are not inherently bad and often exist for good reasons. I now use FreeRTOS regularly, having learnt enough about concurrency to understand when it is useful. My objection is that the familiar Arduino model can conceal the architecture in which it operates, presenting the programmer with something akin to the tip of an iceberg.</p>
+
+      <p>A sufficiently curious beginner might foolishly decide to investigate what happens beneath <code>digitalWrite()</code>. On an old-style Arduino such as the Uno, they would, if persistent enough, eventually find a fairly simple operation on a GPIO register.</p>
+
+      <p>On a modern platform, they would instead find an Arduino task running inside an RTOS, followed by platform APIs, drivers and hardware-abstraction layers before finally reaching the register they might have been looking for.</p>
+
+      <p>I’m hesitant to blame this trend on “lazy” people wanting features such as Wi-Fi, Bluetooth and graphics without putting in the work to understand them. Perhaps I will instead blame it on microcontrollers becoming too good.</p>
+
+      <p>Gone are the days when a beginner had to worry about the limited RAM and clock speed of the ATmega328P. Now they can have a shiny new Uno Q, containing a quad-core application processor running at up to 2 GHz alongside a 160 MHz STM32 microcontroller, compared with the old Uno’s single 16 MHz ATmega328P and 2 KB of SRAM.</p>
+
+      <p>With so much power in abundance, a beginner no longer has to choose the right tool for the job quite so carefully. For most beginner projects, the Uno Q can do it all — and if the software needed to make that possible introduces another few layers of abstraction, there is more than enough processing power and memory available to hide them.</p>
+
+      <p>I think a nice way of illustrating this is to start with the first Arduino sketch I ever wrote. Unsurprisingly, this is Blinky.</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">void setup()
+{
+    // Put your setup code here, to run once:
+    pinMode(LED_BUILTIN, OUTPUT);
+}
+
+void loop()
+{
+    // Put your main code here, to run repeatedly:
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(1000);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(1000);
+}</code></pre>
+        <figcaption>
+          <span class="caption-title">Code block 1 - Blink</span>
+          <span class="caption-note">The embedded equivalent of “Hello, World!”</span>
+        </figcaption>
+      </figure>
+
+      <p>Wow, very nostalgic. When we investigate the underlying code that makes this tick, we find the Arduino AVR core, of which I have written a very basic approximation below:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">int main()
+{
+    init();
+    setup();
+
+    while (true) {
+        loop();
+    }
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/arduino/ArduinoCore-avr/blob/1.8.8/cores/arduino/main.cpp">Code block 2 - A simplified Arduino AVR runtime</a></span>
+          <span class="caption-note">Initialise the core, call <code>setup()</code>, then call <code>loop()</code> forever.</span>
+        </figcaption>
+      </figure>
+
+      <p>On the same “layer” as this core is the implementation of <code>digitalWrite()</code>. A minimal implementation probably looks like this:</p>
+
+      <figure class="equation">
+        <pre class="language-cpp"><code class="language-cpp">void digitalWrite(uint8_t pin, uint8_t value)
+{
+    volatile uint8_t *port = portOutputRegister(digitalPinToPort(pin));
+    uint8_t bit = digitalPinToBitMask(pin);
+
+    if (value == HIGH)
+        *port |= bit;
+    else
+        *port &amp;= ~bit;
+}</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/arduino/ArduinoCore-avr/blob/1.8.8/cores/arduino/wiring_digital.c">Code block 3 - A minimal approximation of <code>digitalWrite()</code></a></span>
+          <span class="caption-note">Arduino pin mapping followed by direct register access.</span>
+        </figcaption>
+      </figure>
+
+      <p>Ignoring startup and the bootloader, which I think is fair because they aren’t really involved in GPIO operation, there are only two software layers: the sketch and the Arduino core. Beneath them is the register-level interface to the hardware. Simples.</p>
+
+      <p>The Arduino Uno Q, on the other hand, is a completely different story. While the user-written Blink sketch is unchanged, it now runs on an STM32U585 microcontroller under the Zephyr RTOS. The Arduino core is still sort of present, but it becomes a compatibility layer on top of Zephyr rather than owning the hardware directly.</p>
+
+      <p>Before the sketch can run, Zephyr initialises the microcontroller, its kernel, scheduling system and drivers. It then loads the compiled sketch and calls <code>setup()</code> and <code>loop()</code>.</p>
+
+      <p>The route taken by <code>digitalWrite()</code> is therefore much longer. The Arduino core must first translate <code>LED_BUILTIN</code> into the GPIO description supplied for the board through Zephyr’s devicetree, then pass the request to the generic GPIO API, which dispatches it to the STM32-specific GPIO driver. Only then does the bit actually get set in the register.</p>
+
+      <figure class="equation">
+        <pre class="language-none"><code class="language-none">Arduino sketch
+    ↓
+Arduino core (Zephyr pin mapping)
+    ↓
+Zephyr GPIO API
+    ↓
+STM32 GPIO driver
+    ↓
+Register</code></pre>
+        <figcaption>
+          <span class="caption-title"><a href="https://github.com/arduino/ArduinoCore-zephyr/tree/0.90.0">Figure 1 - Blink on the Uno Q</a></span>
+          <span class="caption-note">The same sketch now sits on top of an RTOS and its driver model.</span>
+        </figcaption>
+      </figure>
+
+      <p>The other large structural change is, of course, that Zephyr is an RTOS. This means that <code>delay()</code> is handled by Zephyr’s scheduler. This is undoubtedly an improvement, as it allows additional threads to run while the Arduino sketch is sleeping, but it is not apparent from the sketch.</p>
+
+      <p>Oh, and on top of all of that, there is a quad-core Qualcomm processor running Debian Linux on the same board. This doesn’t sit right with me, and not because microcontrollers and Linux machines should never share a board. I do not like what the combination does to the educational character of the Uno. The original board’s limitations encouraged the programmer to understand and work with the machine. On the Uno Q, the temptation to escape to the second, vastly more powerful computer is probably too great.</p>
+
+      <p>I am therefore grateful to have grown up when I did. The old Arduinos made the first step into electronics relatively frictionless, but the hardware’s limitations eventually forced me to understand the machine underneath. If your goal is to sit down and make things work without learning very much about the computer, the Uno Q is probably the right tool for you. I, for one, am glad that the board I started with gave me no second computer to hand the difficult parts to, and when I wanted to find out what was underneath Arduino, I was lucky that there was not very much underneath Arduino.</p>
+
+      <p>There might be a wider lesson here about tools that make it possible to produce increasingly impressive work without understanding how any of it works.</p>
+
+      <footer class="post-footer"><a href="/posts">Back to posts</a></footer>
+    </article>
+  </main>
+
+  <script>
+    (function () {
+      const content = document.querySelector('.fade');
+      if (!content) return;
+
+      function showContent() {
+        content.classList.remove('is-leaving');
+        content.classList.add('is-visible');
+      }
+
+      requestAnimationFrame(showContent);
+      window.addEventListener('pageshow', showContent);
+
+      document.querySelectorAll('a[href]').forEach(a => {
+        const url = new URL(a.href, location.href);
+
+        if (url.origin !== location.origin) return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+
+        a.addEventListener('click', e => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+          e.preventDefault();
+          content.classList.remove('is-visible');
+          content.classList.add('is-leaving');
+
+          setTimeout(() => {
+            location.href = a.href;
+          }, 160);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
